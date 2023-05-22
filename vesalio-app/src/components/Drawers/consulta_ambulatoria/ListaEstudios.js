@@ -1,0 +1,200 @@
+import React, { useEffect, useRef, useState } from 'react'
+import { Box, Button, Checkbox, FormControlLabel, IconButton, InputAdornment, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow, TextField, Tooltip, Typography } from '@mui/material'
+import { useTranslation } from 'react-i18next';
+import SearchTwoToneIcon from '@mui/icons-material/SearchTwoTone';
+import { Markup } from 'interweave';
+import ReactToPrint from "react-to-print";
+import { ComponentToPrint } from "./Print";
+import CloseIcon from '@mui/icons-material/Close';
+import useLayoutContext from 'src/hooks/useAuthLayout';
+
+const applyPagination = (medicosLista, page, limit) => {
+    return medicosLista.slice(page * limit, page * limit + limit);
+};
+
+export default function ListaCitasTabla({ estudios: datos, removeEstudios }) {
+    const { t } = useTranslation();
+    const tableRef = useRef(null);
+    const [lista, setLista] = useState([])
+    const [array, setArray] = useState([])
+    const [page, setPage] = useState(0);
+    const [limit, setLimit] = useState(10);
+    const componentRef = useRef();
+    const {drawerOpen} = useLayoutContext()
+    const handlePageChange = (_event, newPage) => {
+        setPage(newPage);
+    };
+    const [query, setQuery] = useState('')
+
+    const handleLimitChange = (event) => {
+        setLimit(parseInt(event.target.value));
+    };
+
+    useEffect(() => {
+        setLista(datos)
+    }, [datos])
+    useEffect(() => {
+        console.log(drawerOpen)
+    }, [drawerOpen])
+    
+    useEffect(() => {
+        if (query.length > 0) {
+            setLista(datos.filter(x => x.label.toUpperCase().includes(query.toUpperCase())))
+        } else {
+            setLista(datos)
+        }
+    }, [query, datos])
+
+
+    const handleQueryChange = (e) => {
+        setQuery(e.target.value)
+    }
+    const handleCheck = (item) => {
+        if (array.find(x => x === item.id) === undefined) {
+            setArray([...array, item.id])
+        } else {
+            setArray(x => x.filter(x => x !== item.id))
+        }
+    }
+
+    const paginatedmedicosLista = applyPagination(lista, page, limit);
+
+    return (
+        <>
+            <Typography variant='h4'>Exámenes auxiliares</Typography>
+            <Box p={2}>
+                <TextField
+                    sx={{
+                        m: 0
+                    }}
+                    InputProps={{
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchTwoToneIcon />
+                            </InputAdornment>
+                        )
+                    }}
+                    onChange={handleQueryChange}
+                    value={query}
+                    placeholder={t('Buscar')}
+                    size="small"
+                    fullWidth
+                    margin="normal"
+                    variant="outlined"
+                />
+            </Box>
+            {
+                array.length > 0 && <Box
+                    sx={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        mb: 2
+                    }}
+                >
+                    <ReactToPrint
+                        // onAfterPrint={() => resetCarrito()}
+                        trigger={() => (
+                            <Button color="primary" variant="contained">
+                                Imprimir
+                            </Button>
+                        )}
+                        content={() => componentRef.current}
+                    />
+                    <div style={{ display: "none" }}>
+                        <ComponentToPrint
+                            ref={componentRef}
+                            datos={lista.filter(x => array.find(y => y === x.id) !== undefined)}
+                            datosUsuario={drawerOpen.item.datosUsuario}
+                            
+                        />
+                    </div>
+                </Box>
+            }
+
+            <TableContainer>
+                <Table ref={tableRef}>
+                    <TableHead>
+                        <TableRow>
+                            <TableCell>{''}</TableCell>
+                            <TableCell>{t('Tipo Estudio')}</TableCell>
+                            <TableCell>{t('Información')}</TableCell>
+                            <TableCell>{t('Impresión diagnóstica')}</TableCell>
+                            <TableCell>{t('Estudios')}</TableCell>
+                            <TableCell>{t('Acciones')}</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {paginatedmedicosLista.map((list, ix) => {
+                            return (
+                                <TableRow hover key={ix} >
+                                    <TableCell>
+                                        <FormControlLabel
+                                            control={
+                                                <Checkbox
+                                                    checked={array.find(x => x === list.id) !== undefined && true}
+                                                    name="terms"
+                                                    color="primary"
+                                                    onChange={() => handleCheck(list)}
+                                                />
+                                            }
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography
+                                            noWrap
+                                            variant="subtitle1"
+                                            color="text.primary">
+                                            <b>{list.titulo}</b>
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography
+                                            noWrap
+                                            variant="subtitle1"
+                                            color="text.primary">
+                                            <b>{list.informacion}</b>
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography
+                                            noWrap
+                                            variant="subtitle1"
+                                            color="text.primary">
+                                            <b>{list.impresion}</b>
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Markup content={list.componentes.map(x => x.nombre + ' ' + x.nombreCodigo).join('<hr/>')} />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Tooltip title={t('Eliminar')} arrow>
+                                            <IconButton
+                                                size="small"
+                                                color="secondary"
+                                                onClick={() => removeEstudios(list.id)}>
+                                                <CloseIcon fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
+                                    </TableCell>
+                                </TableRow>
+
+                            );
+                        })}
+                    </TableBody>
+                </Table>
+
+            </TableContainer>
+            <Box p={2}>
+                <TablePagination
+                    component="div"
+                    count={lista.length}
+                    onPageChange={handlePageChange}
+                    onRowsPerPageChange={handleLimitChange}
+                    page={page}
+                    rowsPerPage={limit}
+                    rowsPerPageOptions={[5, 10, 15]}
+                />
+            </Box>
+        </>
+    )
+}
